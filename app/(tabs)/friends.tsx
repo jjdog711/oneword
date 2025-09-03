@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import SignInPrompt from '@/components/SignInPrompt';
 import GuestBanner from '@/components/GuestBanner';
 import { createUserFriendlyError } from '@/lib/errors';
+import { formatForUser } from '@/lib/dates';
 import { getConversations, ConversationPreview } from '@/services/dm';
 import { getFriends as getFriendsFromSupabase, getFriendRequests as getFriendRequestsFromSupabase, getSentFriendRequests as getSentFriendRequestsFromSupabase, searchUsers as searchUsersFromSupabase } from '@/services/supabase';
 import { logger } from '@/lib/logger';
@@ -325,12 +326,19 @@ export default function FriendsScreen() {
         return '';
       }
       
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      const ampm = hours >= 12 ? 'pm' : 'am';
-      const displayHours = hours % 12 || 12;
-      const displayMinutes = minutes.toString().padStart(2, '0');
-      return `${displayHours}:${displayMinutes} ${ampm}`;
+      // Use timezone-aware formatting
+      const userTimezone = me.timezone || 'America/New_York';
+      try {
+        return formatForUser(userTimezone, date, 'h:mm a');
+      } catch (error) {
+        // Fallback to original formatting if timezone conversion fails
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        const displayHours = hours % 12 || 12;
+        const displayMinutes = minutes.toString().padStart(2, '0');
+        return `${displayHours}:${displayMinutes} ${ampm}`;
+      }
     } catch (error) {
       console.error('Error formatting time:', error, 'dateString:', dateString);
       return '';
@@ -351,15 +359,17 @@ export default function FriendsScreen() {
         return '';
       }
       
-      // Use a more reliable timezone conversion
-      const utcDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-      const easternOffset = -5; // EST is UTC-5
-      const easternDate = new Date(utcDate.getTime() + (easternOffset * 3600000));
-      
-      const month = (easternDate.getMonth() + 1).toString().padStart(2, '0');
-      const day = easternDate.getDate().toString().padStart(2, '0');
-      const year = easternDate.getFullYear().toString().slice(-2);
-      return `${month}-${day}-${year}`;
+      // Use timezone-aware formatting
+      const userTimezone = me.timezone || 'America/New_York';
+      try {
+        return formatForUser(userTimezone, date, 'MM-dd-yy');
+      } catch (error) {
+        // Fallback to original formatting if timezone conversion fails
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear().toString().slice(-2);
+        return `${month}-${day}-${year}`;
+      }
     } catch (error) {
       console.error('Error formatting date:', error, 'dateString:', dateString);
       return '';
@@ -368,12 +378,21 @@ export default function FriendsScreen() {
 
   const formatHeaderDate = (): string => {
     const date = new Date();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const dayName = dayNames[date.getDay()];
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear().toString().slice(-2);
-    return `${dayName} ${month}/${day}/${year}`;
+    const userTimezone = me.timezone || 'America/New_York';
+    
+    try {
+      // Use timezone-aware formatting
+      const formattedDate = formatForUser(userTimezone, date, 'EEEE M/d/yy');
+      return formattedDate.toLowerCase();
+    } catch (error) {
+      // Fallback to original formatting if timezone conversion fails
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayName = dayNames[date.getDay()];
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const year = date.getFullYear().toString().slice(-2);
+      return `${dayName} ${month}/${day}/${year}`;
+    }
   };
 
   const renderWordRow = ({ item }: { item: WordRowData }) => {

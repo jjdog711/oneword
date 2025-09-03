@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { logger } from '@/lib/logger';
 import { createUserFriendlyError, handleAsyncError, AppError, ErrorCodes } from '@/lib/errors';
-import { TimezoneService } from '@/services/timezone';
+import { getDayKeyForUser } from '@/lib/dates';
 
 const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -99,8 +99,31 @@ export const addPublicWord = async (word: string) => {
 
 export const getPublicWords = async () => {
   return handleAsyncError(async () => {
-    const today = TimezoneService.getTodayInTargetTimezone();
-    console.log('getPublicWords - today (ET):', today);
+    // Get user's timezone from profile
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      logger.error('User not authenticated', { error: userError });
+      throw new AppError(
+        ErrorCodes.AUTHENTICATION_FAILED,
+        'User not authenticated',
+        'Please sign in to view public words.',
+        true
+      );
+    }
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', userData.user.id)
+      .single();
+    
+    if (profileError) {
+      logger.warn('Failed to get user timezone, using default', { error: profileError });
+    }
+    
+    const userTimezone = profile?.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
+    console.log('getPublicWords - today (user timezone):', today);
 
     // Use database function for proper timezone handling
     const { data, error } = await supabase.rpc('get_public_words_today');
@@ -172,7 +195,19 @@ export const getFriendsPublicWords = async () => {
       );
     }
 
-    const today = TimezoneService.getTodayInTargetTimezone();
+    // Get user's timezone from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', userData.user.id)
+      .single();
+    
+    if (profileError) {
+      logger.warn('Failed to get user timezone, using default', { error: profileError });
+    }
+    
+    const userTimezone = profile?.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
 
     // First get the user's friends
     const { data: friends, error: friendsError } = await supabase
@@ -880,10 +915,24 @@ export const addJournalEntry = async (word: string, reflections?: string) => {
       );
     }
 
+    // Get user's timezone from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', userData.user.id)
+      .single();
+    
+    if (profileError) {
+      logger.warn('Failed to get user timezone, using default', { error: profileError });
+    }
+    
+    const userTimezone = profile?.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
+    
     // Use database function for proper timezone handling
     const { error } = await supabase.rpc('add_journal_entry', {
       p_user_id: userData.user.id,
-      p_date_local: TimezoneService.getTodayInTargetTimezone(),
+      p_date_local: today,
       p_word: word,
       p_reflections: reflections || null
     });

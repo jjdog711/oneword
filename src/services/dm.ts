@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { logger } from '@/lib/logger';
 import { createUserFriendlyError, handleAsyncError, AppError, ErrorCodes } from '@/lib/errors';
-import { TimezoneService } from '@/services/timezone';
+import { getDayKeyForUser } from '@/lib/dates';
 
 // Types for the new Facebook-style DM system
 export interface Message {
@@ -184,15 +184,28 @@ export const sendMessage = async (request: SendMessageRequest): Promise<Message>
       );
     }
 
+    // Get user's timezone from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', userData.user.id)
+      .single();
+    
+    if (profileError) {
+      logger.warn('Failed to get user timezone, using default', { error: profileError });
+    }
+    
+    const userTimezone = profile?.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
+    
     // Check if user has already sent a message today to this friend
-    const today = TimezoneService.getTodayInTargetTimezone();
     const { data: existingMessage, error: checkError } = await supabase
       .from('messages')
       .select('id')
       .eq('sender_id', userData.user.id)
       .eq('receiver_id', request.receiver_id)
-      .gte('created_at', TimezoneService.getTodayStartInTargetTimezone())
-      .lt('created_at', TimezoneService.getTodayEndInTargetTimezone())
+      .gte('created_at', new Date(today + 'T00:00:00Z').toISOString())
+      .lt('created_at', new Date(today + 'T23:59:59Z').toISOString())
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error

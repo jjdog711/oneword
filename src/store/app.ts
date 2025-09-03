@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Connection, ID, JournalEntry, Settings, User, Word, Friend, FriendRequest, Notification, FriendPublicWord } from "@/types";
-import { localDateString, parseHHmmToTodayISO } from "@/lib/time";
+import { getDayKeyForUser, parseTimeToUserToday } from "@/lib/dates";
 import { isSingleWord } from "@/lib/validate";
 import { getConnectionStatus, Status } from "@/lib/reveal";
 import { addWord as addWordToSupabase, addPublicWord as addPublicWordToSupabase, getPublicWords as getPublicWordsFromSupabase, getFriendsPublicWords as getFriendsPublicWordsFromSupabase, getCurrentUserPublicWord as getCurrentUserPublicWordFromSupabase, sendFriendRequest as sendFriendRequestToSupabase, getFriends as getFriendsFromSupabase, getFriendRequests as getFriendRequestsFromSupabase, getSentFriendRequests as getSentFriendRequestsFromSupabase, acceptFriendRequest as acceptFriendRequestToSupabase, declineFriendRequest as declineFriendRequestToSupabase, removeFriend as removeFriendFromSupabase, searchUsers as searchUsersFromSupabase, loadUserConnections as loadUserConnectionsFromSupabase, getContactSuggestions as getContactSuggestionsFromSupabase, getNotifications as getNotificationsFromSupabase, addJournalEntry as addJournalEntryToSupabase, getJournalEntries as getJournalEntriesFromSupabase, deleteJournalEntry as deleteJournalEntryToSupabase, updateJournalEntry as updateJournalEntryToSupabase, addFriendById as addFriendByIdToSupabase, updateUserProfile as updateUserProfileToSupabase, deletePublicWord as deletePublicWordToSupabase, signInWithGoogle, signInWithFacebook, signInWithApple, signInWithGithub } from "@/services/supabase";
@@ -80,7 +80,7 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
   words: [],
   journal: [],
   settings: { notifEnabled: true, gamificationEnabled: true },
-  lastProcessedDate: localDateString(),
+  lastProcessedDate: '', // Will be set dynamically
   publicWords: [],
   friendsPublicWords: [],
   currentUserPublicWord: null,
@@ -92,6 +92,18 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
 
   bootstrap(){
     const st = get();
+    // Initialize timezone if not set
+    if (!st.me.timezone) {
+      set({ me: { ...st.me, timezone: 'America/New_York' } });
+    }
+    
+    // Initialize lastProcessedDate if not set
+    if (!st.lastProcessedDate) {
+      const userTimezone = st.me.timezone || 'America/New_York';
+      const today = getDayKeyForUser(userTimezone);
+      set({ lastProcessedDate: today });
+    }
+    
     // Create a consistent UUID for system user (using a fixed UUID)
     const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
     
@@ -124,14 +136,15 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
     if(!c) return [];
     const them = c.a===me? c.b : c.a;
     // show last 14 days for demo
+    const userTimezone = get().me.timezone || 'America/New_York';
     const days: string[] = Array.from({length:14},(_,i)=>{
       const d = new Date(); d.setDate(d.getDate()-i);
-      return localDateString(d);
+      return getDayKeyForUser(userTimezone, d);
     }).reverse();
     return days.map(date=>{
       const mine = get().words.find(w=>w.senderId===me && w.receiverId===them && w.dateLocal===date);
       const theirs = get().words.find(w=>w.senderId===them && w.receiverId===me && w.dateLocal===date);
-      const missed = (!mine && !theirs && date!==localDateString());
+      const missed = (!mine && !theirs && date!==getDayKeyForUser(userTimezone));
       const revealNow = (w?:Word)=>{
         if(!w) return undefined;
         if(w.reveal==='scheduled' && w.revealTime && Date.now()<new Date(w.revealTime).getTime()) return undefined;
@@ -156,7 +169,8 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
     return get().friendRequests.received.filter(r => r.status === 'pending');
   },
   todaysJournalEntry(){
-    const today = localDateString();
+    const userTimezone = get().me.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
     return get().journalEntries.find(je => je.dateLocal === today);
   },
 
@@ -165,7 +179,8 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
     if(!isSingleWord(text)) return;
     const me = st.me.id; const c = st.connections.find(c=>c.id===connectionId);
     if(!c) return; const them = c.a===me? c.b : c.a;
-    const dateLocal = localDateString();
+    const userTimezone = st.me.timezone || 'America/New_York';
+    const dateLocal = getDayKeyForUser(userTimezone);
     // enforce one per day per connection
     const existing = st.words.find(w=>w.senderId===me && w.receiverId===them && w.dateLocal===dateLocal);
     if(existing) {
@@ -184,7 +199,7 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
       const w: Word = {
         id: uid(), senderId: me, receiverId: them, dateLocal,
         text, reveal,
-        revealTime: reveal==='scheduled' ? parseHHmmToTodayISO(time||'21:00') : undefined,
+        revealTime: reveal==='scheduled' ? parseTimeToUserToday(userTimezone, time||'21:00') : undefined,
         burnIfUnread: reveal==='mutual' ? !!burn : false,
         createdAt: Date.now()
       };
@@ -387,8 +402,13 @@ export const useAppStore = create<AppState>()(persist((set,get)=>({
 
   processMidnight(){
     const st = get();
-    const today = localDateString();
-    const yesterday = ((d:Date)=>{ const x=new Date(d); x.setDate(x.getDate()-1); return localDateString(x); })(new Date());
+    const userTimezone = st.me.timezone || 'America/New_York';
+    const today = getDayKeyForUser(userTimezone);
+    const yesterday = ((d:Date)=>{ 
+      const x=new Date(d); 
+      x.setDate(x.getDate()-1); 
+      return getDayKeyForUser(userTimezone, x); 
+    })(new Date());
 
     // burn-if-unread: delete sender words where counterpart missing
     const keep: Word[] = [];

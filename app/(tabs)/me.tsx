@@ -16,6 +16,7 @@ import SignInPrompt from '@/components/SignInPrompt';
 import SettingsDropdown from '@/components/SettingsDropdown';
 import { BookText, Settings } from 'lucide-react-native';
 import { createUserFriendlyError } from '@/lib/errors';
+import { formatForUser } from '@/lib/dates';
 
 interface JournalEntry {
   id: string;
@@ -114,10 +115,17 @@ export default function MeScreen() {
       return 'unknown date';
     }
     
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2);
-    return `${month}-${day}-${year}`;
+    // Use timezone-aware formatting
+    const userTimezone = me.timezone || 'America/New_York';
+    try {
+      return formatForUser(userTimezone, date, 'MM-dd-yy');
+    } catch (error) {
+      // Fallback to original formatting if timezone conversion fails
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear().toString().slice(-2);
+      return `${month}-${day}-${year}`;
+    }
   };
 
   const renderJournalEntry = ({ item }: { item: JournalEntry }) => (

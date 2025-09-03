@@ -1,17 +1,19 @@
 import { Word } from "@/types";
-import { localDateString } from "@/lib/time";
+import { getDayKeyForUser, isTimePassedInUserTz } from "@/lib/dates";
 
 export type Status = 'WAITING_YOU'|'WAITING_THEM'|'SCHEDULED'|'REVEALED'|'MISSED';
 
 export function getConnectionStatus(words:Word[], me:string, them:string): Status {
-  const today = localDateString();
+  // Note: This function needs user timezone context
+  // For now, use default timezone, but this should be updated to accept user timezone
+  const userTimezone = 'America/New_York'; // TODO: Get from user context
+  const today = getDayKeyForUser(userTimezone);
   const mine = words.find(w=>w.senderId===me && w.receiverId===them && w.dateLocal===today);
   const theirs = words.find(w=>w.senderId===them && w.receiverId===me && w.dateLocal===today);
 
   if(mine && (mine.reveal==='scheduled')){
     // scheduled shows scheduled until revealTime passes
-    const t = mine.revealTime ? new Date(mine.revealTime).getTime() : 0;
-    if(Date.now()<t) return 'SCHEDULED';
+    if(mine.revealTime && !isTimePassedInUserTz(userTimezone, mine.revealTime)) return 'SCHEDULED';
   }
 
   if(mine && mine.reveal==='instant') return theirs ? 'REVEALED' : 'REVEALED';
