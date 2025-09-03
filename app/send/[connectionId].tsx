@@ -1,7 +1,9 @@
 import { useLocalSearchParams, router } from "expo-router";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useState, useMemo } from "react";
 import { useAppStore } from "@/store/app";
+import { logger } from '@/lib/logger';
+import { createUserFriendlyError } from '@/lib/errors';
 
 export default function SendScreen(){
   const { connectionId } = useLocalSearchParams<{connectionId:string}>();
@@ -22,7 +24,12 @@ export default function SendScreen(){
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Send to {connection.name}</Text>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
+        </Pressable>
+        <Text style={styles.title}>Send to {connection.name}</Text>
+      </View>
 
       <Text style={styles.label}>Your word</Text>
       <TextInput
@@ -60,9 +67,16 @@ export default function SendScreen(){
 
       <Pressable
         disabled={!canSend}
-        onPress={()=>{
-          sendWord({ connectionId: connection.id, text: word.trim(), reveal, time, burn });
-          router.back();
+        onPress={async ()=>{
+          try {
+            await sendWord({ connectionId: connection.id, text: word.trim(), reveal, time, burn });
+            router.back();
+          } catch (error) {
+            logger.error('Failed to send word', { error, connectionId: connection.id, word });
+            const appError = createUserFriendlyError(error);
+            const title = appError.code === 'DAILY_WORD_LIMIT_EXCEEDED' ? 'Cannot Send Word' : 'Error';
+            Alert.alert(title, appError.userMessage);
+          }
         }}
         style={[styles.btn, !canSend && {opacity:.4}]}
       >
@@ -74,7 +88,10 @@ export default function SendScreen(){
 
 const styles = StyleSheet.create({
   container:{flex:1,padding:20,gap:12,backgroundColor:'#fff'},
-  title:{fontSize:22,fontWeight:'700',marginBottom:8},
+  header:{flexDirection:'row',alignItems:'center',gap:12,marginBottom:8},
+  backButton:{paddingVertical:8},
+  backText:{color:'#666',fontWeight:'600'},
+  title:{fontSize:22,fontWeight:'700'},
   label:{fontWeight:'600',marginTop:6},
   input:{borderWidth:1,borderColor:'#ddd',borderRadius:12,padding:12,fontSize:16,backgroundColor:'#fafafa'},
   row:{flexDirection:'row',gap:8,flexWrap:'wrap'},

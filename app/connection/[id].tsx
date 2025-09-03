@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { View, Text, FlatList, StyleSheet, Pressable } from "react-native";
 import { useAppStore } from "@/store/app";
 
 export default function ThreadScreen(){
@@ -8,7 +8,12 @@ export default function ThreadScreen(){
   const conn = useAppStore(s=>s.connectionById(id!));
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{conn?.name}</Text>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
+        </Pressable>
+        <Text style={styles.title}>{conn?.name}</Text>
+      </View>
       <FlatList data={thread} keyExtractor={(r)=>r.key}
         renderItem={({item})=> (
           <View style={styles.row}>
@@ -24,6 +29,9 @@ export default function ThreadScreen(){
 }
 const styles = StyleSheet.create({
   container:{flex:1,padding:20,gap:12,backgroundColor:'#fff'},
+  header:{flexDirection:'row',alignItems:'center',gap:12,marginBottom:8},
+  backButton:{paddingVertical:8},
+  backText:{color:'#666',fontWeight:'600'},
   title:{fontSize:22,fontWeight:'700'},
   row:{padding:12,backgroundColor:'#f7f7fa',borderRadius:12,marginBottom:10,gap:4},
   date:{color:'#666',fontWeight:'600'},

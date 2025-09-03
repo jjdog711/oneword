@@ -1,40 +1,244 @@
-# OneWord Expo App
+# OneWord App
 
-This directory contains a starter Expo (React Native + TypeScript) implementation of the **OneWord** daily ritual app. The goal of this project is to provide a scaffold that can be extended into a full production client that talks to a Supabase backend and implements all of the business rules defined in the product spec.
+A React Native app built with Expo SDK 53 that allows users to send one word per day to their connections with various reveal options, plus full direct messaging capabilities.
+
+## Features
+
+- **Authentication**: No-verification signup and login via Supabase
+- **Word Sharing**: Send one word per day to connections
+- **Reveal Options**: 
+  - Instant: Reveal immediately
+  - Mutual: Reveal only when both parties send a word
+  - Scheduled: Reveal at a specific time
+- **Direct Messaging**: Full-featured DM system with real-time messaging
+- **Thread View**: View conversation history with connections
+- **Journal**: Track your daily words and reflections
+- **Public Feed**: See today's most popular words
+- **Friends Management**: Add, manage, and connect with friends
+
+## Tech Stack
+
+- **Frontend**: React Native with Expo SDK 53
+- **State Management**: Zustand with persistence
+- **Backend**: Supabase (PostgreSQL + Auth + Real-time)
+- **Navigation**: Expo Router
+- **Styling**: React Native StyleSheet
+- **Icons**: Lucide React Native
+- **Authentication**: Supabase Auth (Google OAuth + Email/Password)
+
+## Project Structure
+
+```
+oneword/
+├── app/                    # Expo Router app directory
+│   ├── _layout.tsx        # Root layout with auth
+│   ├── index.tsx          # Landing page with sign in/up
+│   ├── (tabs)/            # Tab navigation
+│   │   ├── _layout.tsx    # Tab layout
+│   │   ├── index.tsx      # Home screen
+│   │   ├── journal.tsx    # Journal screen
+│   │   ├── friends.tsx    # Friends management
+│   │   ├── requests.tsx   # Friend requests
+│   │   ├── messages.tsx   # DM conversations list
+│   │   ├── public.tsx     # Public feed
+│   │   └── settings.tsx   # Settings screen
+│   ├── chat/              # DM chat screens
+│   │   └── [conversationId].tsx  # Individual chat
+│   ├── new-conversation.tsx      # Start new conversation
+│   ├── connection/        # Connection management
+│   │   └── [id].tsx       # Connection details
+│   ├── send/              # Word sending
+│   │   └── [connectionId].tsx  # Send word to connection
+│   └── auth/              # Authentication
+│       └── callback.tsx   # OAuth callback
+├── src/
+│   ├── components/        # Reusable components
+│   │   ├── SignInPrompt.tsx     # Authentication prompt
+│   │   └── AuthStatus.tsx       # Auth status display
+│   ├── lib/               # Utility libraries
+│   │   ├── database.ts    # Database utilities
+│   │   ├── errors.ts      # Error handling
+│   │   ├── logger.ts      # Logging utilities
+│   │   ├── reveal.ts      # Word reveal logic
+│   │   ├── time.ts        # Time utilities
+│   │   └── validate.ts    # Validation utilities
+│   ├── services/          # Service layer
+│   │   ├── supabase.ts    # Supabase client & auth
+│   │   ├── dm.ts          # Direct messaging service
+│   │   └── midnight.ts    # Midnight processing
+│   ├── store/             # State management
+│   │   └── app.ts         # Zustand store
+│   └── types.ts           # TypeScript types
+├── supabase/              # Supabase configuration
+│   ├── config.toml        # Supabase config
+│   └── migrations/        # Database migrations
+│       ├── 001_init.sql           # Initial schema
+│       ├── 002_social.sql         # Social features
+│       ├── 003_enhance_profiles.sql  # Profile enhancements
+│       └── 004_dm_system.sql      # DM system
+└── assets/                # App assets
+```
+
+## Direct Messaging System
+
+The app now includes a comprehensive DM system with the following features:
+
+### Core Features
+- **Real-time messaging** between users
+- **Conversation management** with friend list
+- **Message interactions** (reply, edit, delete)
+- **Read receipts** and message status
+- **Message reactions** (emojis)
+- **Conversation archiving** and organization
+
+### Database Schema
+- `conversations` - DM threads between users
+- `messages` - Individual messages with metadata
+- `message_status` - Read receipts and delivery status
+- `message_reactions` - Message reactions and emojis
+
+### Security
+- **Row Level Security (RLS)** policies ensure privacy
+- **User authentication** required for all DM features
+- **Message ownership** validation for editing/deletion
 
 ## Getting Started
 
-1. **Install dependencies** – In a normal development environment you would run:
+### Prerequisites
+- Node.js 18+ 
+- Expo CLI
+- Supabase account
 
-   ```bash
-   npm install
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone <repository-url>
+cd oneword
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Set up Supabase**
+   - Create a new Supabase project
+   - Copy your project URL and anon key
+   - Create a `.env` file with:
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-   However, note that package installation may be restricted in this environment. All of the source files are included here so you can inspect the structure.
+4. **Apply database migrations**
+```bash
+supabase db push
+```
 
-2. **Configure environment variables** – Copy `.env.example` to `.env` and fill in your Supabase project URL, anon key, service role key, and the Expo push URL. Expo will expose variables prefixed with `EXPO_PUBLIC_` to your app at runtime.
+5. **Configure authentication**
+   - Go to Supabase Dashboard → Authentication → Settings
+   - Disable "Confirm email" for no-verification signup
+   - Configure Google OAuth if desired
 
-3. **Start the development server** – Once dependencies are installed and env vars are configured, run:
+6. **Start the development server**
+```bash
+npx expo start
+```
 
-   ```bash
-   npx expo start -c
-   ```
+## Testing the DM System
 
-   You can then open the project in Expo Go on a physical device or run it in an emulator. The starter uses the Expo Router for navigation and Zustand for state management.
+Use the comprehensive testing guide in `DM_TESTING_GUIDE.md` to verify all DM functionality:
 
-## Contents
+```bash
+# Follow the testing phases:
+1. Database Setup
+2. Core Functionality
+3. Real-time Features
+4. UI/UX Testing
+5. Security Testing
+6. Error Handling
+7. Performance Testing
+8. Edge Cases
+```
 
-* **`app/`** – Contains the route components for your screens. Tabs live in `app/(tabs)` and stack screens live in their respective directories.
-* **`src/store/app.ts`** – A Zustand store that holds all client state. In this starter it simulates backend behavior locally, including auto‑reply from a “System Friend”. In a complete implementation this store should be replaced with calls to Supabase.
-* **`src/lib/`** – Utility functions for time calculations, validation, and reveal status helpers.
-* **`src/services/`** – Place shared service clients here. A `supabase.ts` module has been stubbed out to show how to initialize a client with environment variables.
-* **`supabase/migrations/`** – SQL scripts for setting up your Supabase Postgres schema. `001_init.sql` contains the tables and indexes described in the spec.
+## Key Features
 
-## Next Steps
+### Authentication
+- **No-verification signup** for immediate access
+- **Google OAuth** integration
+- **Email/password** authentication
+- **Session management** with automatic sign-out
 
-* Hook up authentication using Supabase Auth. Replace the local mock user with real user sessions.
-* Replace the mock Zustand store with remote data fetching via Supabase RPC calls. Use React Query to manage server state and caching.
-* Implement scheduled functions and edge functions in your Supabase project to handle burn‑if‑unread deletions and scheduled reveals.
-* Add push notification logic using `expo-notifications` and your server functions.
+### Word Sharing
+- **Daily word limits** (one word per day per connection)
+- **Multiple reveal options** (instant, mutual, scheduled)
+- **Connection management** with friend requests
+- **Public word sharing** with privacy controls
 
-The included files and docs are meant to bootstrap your development. Refer to the product specification and milestone checklist for a detailed breakdown of the remaining tasks.
+### Direct Messaging
+- **Real-time conversations** with friends
+- **Message history** and threading
+- **Interactive features** (reactions, replies, editing)
+- **Conversation organization** (archiving, pinning)
+
+### User Experience
+- **Modern UI** with smooth animations
+- **Responsive design** for all screen sizes
+- **Offline support** with data persistence
+- **Error handling** with user-friendly messages
+
+## Development
+
+### Adding New Features
+1. **Database**: Add migrations in `supabase/migrations/`
+2. **Types**: Update `src/types.ts` with new interfaces
+3. **Services**: Create service functions in `src/services/`
+4. **Components**: Build reusable components in `src/components/`
+5. **Screens**: Add new screens in `app/` directory
+6. **State**: Update Zustand store in `src/store/app.ts`
+
+### Code Style
+- **TypeScript** for type safety
+- **Functional components** with hooks
+- **Consistent naming** conventions
+- **Error boundaries** for robust error handling
+- **Comprehensive logging** for debugging
+
+## Deployment
+
+### Production Build
+```bash
+# Build for production
+npx expo build:android
+npx expo build:ios
+```
+
+### Environment Variables
+Ensure all environment variables are set in your production environment:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- Google OAuth credentials (if using)
+
+## Contributing
+
+1. **Fork** the repository
+2. **Create** a feature branch
+3. **Make** your changes
+4. **Test** thoroughly using the testing guide
+5. **Submit** a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions:
+- Check the testing guides for troubleshooting
+- Review the Supabase documentation
+- Open an issue for bugs or feature requests
+
+---
+
+**OneWord** - Share one word, every day, and now chat freely with friends! 💬✨
